@@ -1,6 +1,6 @@
 ---
 title: "A1_P1_Student"
-author: "Céline Carlsen"
+author: "Pernille Berg Lassen"
 date: "29/8/2017"
 output: html_document
 ---
@@ -38,7 +38,8 @@ N.B. Create a GitHub repository for the Language Development in ASD set of assig
 Set the working directory (the directory with your data and code for these assignments):
 
 ```{r}
-
+#Setting the working directory
+setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
@@ -47,7 +48,10 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
 ```{r}
-
+#Loading the three data sets
+demo_train=read.csv("demo_train(1).csv",sep=",")
+LU_train=read.csv("LU_train.csv",sep=",")
+token_train=read.csv("token_train.csv",sep=",")
 ```
 
 Explore the 3 datasets (e.g. visualize them, summarize them, etc.). You will see that the data is messy, since the psychologists collected the demographic data, a linguist analyzed the length of utterance in May 2014 and the same linguist analyzed the words several months later. In particular:
@@ -64,15 +68,22 @@ Tip: Look into the package data.table, or google "how to rename variables in R"
 
 
 ```{r}
-
+library(plyr)
+#Renaming the variables Child.ID and Visit
+demo_train=plyr::rename(demo_train, c("Child.ID"="ID"))
+LU_train=plyr::rename(LU_train,c("SUBJ"="ID","VISIT"="Visit"))
+token_train=plyr::rename(token_train,c("SUBJ"="ID","VISIT"="Visit"))
 ```
 
 2b. Find a way to homogeneize the way "visit" is reported. If you look into the original data sets, you will see that in the LU data and the Token data, Visits are called "visit 1" in stead of just 1 (which is the case in the demographic data set).
 Tip: There is a package called stringr, which will be very handy for you also in future assignments. We will return to this package later, but for now use the str_extract () to extract only the number from the variable Visit in each data set. Tip: type ?str_extract() after loading the library, for examples of how to use it.
 
 ```{r}
+library(stringr)
 
-
+#Extracting phrases in Visit - leaving only digits
+LU_train$Visit=str_extract(LU_train$Visit,"\\d")
+token_train$Visit=str_extract(token_train$Visit, "\\d")
 ```
 
 2c. We also need to make a small adjustment to the content of the Child.ID coloumn in the demographic data. Within this column, names that are not abbreviations do not end with "." (i.e. Adam), which is the case in the other two data sets (i.e. Adam.). If The content of the two variables isn't identical the data sets will not be merged sufficiently.
@@ -87,7 +98,10 @@ Tip: You will have to do identical work for both data sets, so to save time on t
 
 
 ```{r}
-
+#Removing "." in the ID coloumn
+LU_train$ID=gsub("\\.","",LU_train$ID)
+token_train$ID=gsub("\\.","",token_train$ID)
+demo_train$ID=gsub("\\.","",demo_train$ID)
 ```
 
 2d. Now that the nitty gritty details of the different data sets are fixed, we want to make a subset of each data set only containig the variables that we wish to use in the final data set.
@@ -105,8 +119,15 @@ The variables we need are: Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, A
 It would be smart to rename the MullenRaw and ExpressiveLangRaw into something you can remember (i.e. nonVerbalIQ, verbalIQ)
 
 ```{r}
+library(tidyverse)
+#Renaming variables
+demo_train=plyr::rename(demo_train,c("MullenRaw"="nonVerbalIQ", "ExpressiveLangRaw"="verbalIQ"))
 
+#Merging data
+newData1=merge(demo_train,LU_train,all=T)
+MergedData=merge(token_train,newData1,all=T)
 
+RealData=select(MergedData, ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  nonVerbalIQ, verbalIQ, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
 ```
 
 2e. Finally we are ready to merge all the data sets into just one. 
@@ -116,7 +137,7 @@ Tip: Merge only works for two data frames at the time.
 Tip: Check the number of observations in the datasets before and after merging. What is going on?
 
 ```{r}
-
+#Already Done
 ```
 
 Are we done yet?
@@ -130,7 +151,11 @@ Tip: the final dataset should have as many rows as the the old one.
 
 
 ```{r}
-
+df_temp = subset(RealData, Visit == 1) #choosing only the first visit
+df_temp = select(df_temp, ID, ADOS, nonVerbalIQ, verbalIQ) #choose the relevant info
+RealData = subset(RealData, select=-c(ADOS, nonVerbalIQ, verbalIQ))#drop the column you want to refresh
+#Merge into the newest and coolest dataframe!
+df = merge(df_temp, RealData, ALL=T)
 ```
 
 Now, we are almost ready to actually start working with the data. However, here are some additional finishing touches:
@@ -144,15 +169,23 @@ Tip: as.numeric() might be a useful function, but not alone.
 Tip: Google "how to rename levels in R".
 
 ```{r}
+#turning ID into numbers:
+df$ID=as.numeric(as.factor(df$ID))
 
+#turning Visit into numeric:
+df$Visit=as.numeric(as.factor(df$Visit))
 
+#renaming values in Gender and Diagnosis
+df$Gender=as.factor(df$Gender)
+df$Gender=plyr::revalue(df$Gender,c("1"="F","2"="M"))
+df$Diagnosis=plyr::revalue(df$Diagnosis, c("A"="ASD","B"="TD"))
 ```
 
 
 Save the data set using into a csv file. Hint: look into write.csv()
 
 ```{r}
-
+write.csv(df,file="Assignment_1_data.csv")
 ```
 
 
