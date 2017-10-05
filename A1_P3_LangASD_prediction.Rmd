@@ -30,7 +30,7 @@ How did your models from last time perform? In this exercise you have to compare
 ```{r}
 #Loading libraries
 library(pacman)
-p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,pacman,stringr,tidyverse,plyr,caret)
+p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,pacman,stringr,tidyverse,plyr,caret,Metrics,groupdata2)
 
 #setting working directory
 setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
@@ -39,20 +39,20 @@ setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
 training_data=read.csv("Assignment_1_data.csv",sep=",")
 training_data=na.omit(training_data)
 
-#Model from Assignment 1, part 2
-MLUmodel=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),data,REML=F)
-summary(MLUmodel)
+#Model from Assignment 1, part 2 - Our awesome model
+MLUmodel=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),training_data,REML=F)
 ``` 
 
 
-For i in folds --> select data, train model, test the model, save the performance. 
 
 - calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the functions rmse() and predict() )
 
 ```{r}
 #Model performance on training data
-rmse(MLUmodel,training_data)
+modelr::rmse(MLUmodel,training_data)
 ```
+An alright performance (rmse = average error, 0.35 is okay)
+
 - create the test dataset (apply the code from assignment 1 part 1 to clean up the 3 test datasets)
 ```{r}
 #Loading test data sets
@@ -99,7 +99,7 @@ test_data$Visit=as.numeric(as.factor(test_data$Visit))
 
 #renaming values in Gender and Diagnosis
 test_data$Gender=as.factor(test_data$Gender)
-test_data$Gender=plyr::revalue(test_data$Gender,c("1"="F","2"="M"))
+test_data$Gender=plyr::revalue(test_data$Gender,c("1"="F", "2"="M"))
 test_data$Diagnosis=plyr::revalue(test_data$Diagnosis, c("A"="ASD","B"="TD"))
 
 ```
@@ -108,8 +108,9 @@ test_data$Diagnosis=plyr::revalue(test_data$Diagnosis, c("A"="ASD","B"="TD"))
 
 ```{r}
 #Model performance on test data - how good is our model to predict new data?
-rmse(MLUmodel,test_data)
+modelr::rmse(MLUmodel,test_data)
 ```
+So our model was okay at explaning data, but horrible at explaning new data (average error of 0.72, when you want to diagnose something is bad)
 
 - optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
 
@@ -117,8 +118,7 @@ rmse(MLUmodel,test_data)
 
 ```
 
-
-[HERE GOES YOUR ANSWER]
+THE EXTENDED MODEL IS RELATIVELY GOOD AT EXPLANING THE ORIGINAL DATA (TRAINING_DATA) BUT FAILS AT PREDICTING/GENERALIZE TO NEW DATA (TEST_DATA)
 
 ### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
 
@@ -129,22 +129,104 @@ In this exercise you have to use cross-validation to calculate the predictive er
 - Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
 
 ```{r}
-model1=lmerTest::lmer(CHI_MLU~Visit+Diagnosis+(1+Visit|ID),test_data,REML=F)
+model1=lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),training_data,REML=F)
 ```
 - Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
 - Report the results and comment on them.
 ```{r}
 
-#folds=createFolds(test_data,k=4,returnTrain = T)
-#sapply(folds,length)
+library(groupdata2)
 
-#for (i in folds)
-  #{
-  #assign(paste0("train_",i),train_missing[eval(parse(text=paste("folds$Fold0",i))),])
+numfolds = 4
+Original_train = training_data
+training_data = fold(training_data, numfolds ,id_col="ID", cat_col=c("Gender","Diagnosis"))
+
+perf_test_list=c()
+perf_train_list=c()
+
+for (fold in seq(numfolds)){
+  temp_train = subset(training_data, .folds !=fold)
+  temp_test = subset(training_data, .folds == fold)
+  temp_model=lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),temp_train,REML=F) #training the simple model 
   
-#}
+  pred_test=predict(temp_model,temp_test, allow.new.levels=T) #getting performance for test data
+  perf_test=Metrics::rmse(temp_test$CHI_MLU, pred_test) 
+  perf_test_list=c(perf_test_list,perf_test)
+  pred_train=predict(temp_model,temp_train)#get performance for training data
+  perf_train=Metrics::rmse(temp_train$CHI_MLU,pred_train)
+  perf_train_list=c(perf_train_list,perf_train)
+
+}
+
+perf_test_list
+perf_train_list
+
+test_data$ID=test_data$ID+100
+
+pred_test=predict(model1,test_data, allow.new.levels=T)
+Metrics::rmse(test_data$CHI_MLU, pred_test) 
+#Ca det samme som loopet --> betyder at vi kan få samme info fra store dataset som det lille dataset
+
 ```
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+
+```{r}
+library(groupdata2)
+
+numfolds = 4
+
+perf_test_list=c()
+perf_train_list=c()
+
+#Making some random modelsstrings, which we can test against our cool model from Part 2 (model2) - we want to find the best" predivtive model of ChildMLU 
+model2="CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID)"
+model3="CHI_MLU~1+Visit+Diagnosis+MOT_MLU+tokens_MOT+types_MOT+(1+Visit|ID)"
+model4="CHI_MLU~1+Visit+Diagnosis+tokens_CHI*types_CHI+(1+Visit|ID)"
+model5="CHI_MLU~1+Visit+Diagnosis+nonVerbalIQ+(1+Visit|ID)"
+models=c(model2,model3,model4,model5)
+
+
+Cross_val = function(numfolds, model_string, data){
+  training_data = fold(data, numfolds ,id_col="ID", cat_col=c("Gender","Diagnosis"))
+  
+  perf_test_list=c()
+  perf_train_list=c()
+  
+  for (fold in seq(numfolds)){
+    temp_train = subset(training_data, .folds !=fold)
+    temp_test = subset(training_data, .folds == fold)
+    temp_model=lmerTest::lmer(model_string,temp_train,REML=F) #training the simple model 
+    
+    pred_test=predict(temp_model,temp_test, allow.new.levels=T) #getting performance for test data
+    perf_test=Metrics::rmse(temp_test$CHI_MLU, pred_test) 
+    perf_test_list=c(perf_test_list,perf_test)
+    pred_train=predict(temp_model,temp_train)#get performance for training data
+    perf_train=Metrics::rmse(temp_train$CHI_MLU,pred_train)
+    perf_train_list=c(perf_train_list,perf_train)
+  
+  perf_test_list
+  perf_train_list
+  }
+  
+return(data.frame(perf_test = perf_test_list, perf_train = perf_train_list, model = model_string))
+}
+
+for (modelString in models){ 
+  if (modelString == models[1]){
+  result_df = Cross_val(4, modelString, Original_train)
+  result_df
+  }
+  else{
+  result_df = rbind(result_df, Cross_val(4, modelString, Original_train))
+  }
+}
+result_df$modelnr = sort(rep(seq(4), 4))
+
+#test_data$ID=test_data$ID+100
+
+#pred_test=predict(model1,test_data, allow.new.levels=T)
+#Metrics::rmse(test_data$CHI_MLU, pred_test)
+```
 
 - Bonus Question 1: How would you go comparing the performance of the basic model and the cross-validated model on the testing set?
 - Bonus Question 2: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
@@ -161,7 +243,21 @@ You want to evaluate:
 - how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
 (Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group  for each parameter in the model as X1, X2, etc.).
 
+```{r}
+#Extracting Bernie's data
+bernie_frame=subset(test_data, ID==202)
+summary(model1)
+
+td_df=data.frame(ID=300,Visit=1:6,Diagnosis="TD")
+predict(model1,td_df, allow.new.levels=T)
+abs(predict(model1,td_df, allow.new.levels=T)-bernie_frame$CHI_MLU)
+
+```
+
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+```{r}
+bernie_frame$CHI_MLU-predict(model1,bernie_frame,allow.new.levels=T)
+```
 
 [HERE GOES YOUR ANSWER]
 
