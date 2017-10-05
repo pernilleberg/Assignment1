@@ -39,6 +39,7 @@ setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
 training_data=read.csv("Assignment_1_data.csv",sep=",")
 training_data=na.omit(training_data)
 
+
 #Model from Assignment 1, part 2 - Our awesome model
 MLUmodel=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),training_data,REML=F)
 ``` 
@@ -222,7 +223,7 @@ for (modelString in models){
 }
 result_df$modelnr = sort(rep(seq(4), 4))
 
-#test_data$ID=test_data$ID+100
+test_data$ID=test_data$ID+100
 
 #pred_test=predict(model1,test_data, allow.new.levels=T)
 #Metrics::rmse(test_data$CHI_MLU, pred_test)
@@ -260,6 +261,11 @@ bernie_frame$CHI_MLU-predict(model1,bernie_frame,allow.new.levels=T)
 ```
 
 [HERE GOES YOUR ANSWER]
+
+```{r}
+write.csv(Original_train,"df_train_original.csv")
+write.csv(test_data,"df_test_original.csv")
+```
 
 ### OPTIONAL: Exercise 4) Model Selection via Information Criteria
 Another way to reduce the bad surprises when testing a model on new data is to pay close attention to the relative information criteria between the models you are comparing. Let's learn how to do that!

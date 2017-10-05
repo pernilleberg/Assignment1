@@ -17,6 +17,50 @@ In this exercise we will assess how many participants we would need to adequatel
 
 How much power does your study have (if your model estimates are quite right)?
 - [GitHub]Load your dataset, fit your favorite model, assess power for your main effects and interactions of interest.
+
+```{r}
+#Setting working directory
+setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
+
+#Loading libraries
+library(pacman)
+p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,pacman,stringr,tidyverse,plyr,caret,Metrics,groupdata2,simr)
+
+
+#Loading data
+train_data=read.csv("df_train_original.csv",sep=",")
+train_data=select(train_data,-c(X.1))
+
+
+test_data2=read.csv("df_test_original.csv",sep=",")
+test_data2$Age=as.character(test_data2$Age)
+test_data2$Age=as.numeric(gsub(",",".",test_data2$Age))
+test_data2$Gender = rep("M",35)
+train_data$Gender = mapvalues(train_data$Gender, from = c("M", "F"), to = c("F", "M"))
+
+
+MLU_df=rbind(train_data,test_data2)
+
+#Fitting our favourite model, which was still bad
+MLU_model=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
+MLU_model_noIn = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
+
+#Accessing power of MLU_model main effects
+power_visit = powerSim(MLU_model_noIn,fixed("Visit"), nsim = 10)
+power_visit
+
+power_diagnosis = powerSim(MLU_model_noIn,fixed("Diagnosis"), nsim = 10)
+power_diagnosis
+
+power_verbalIQ = powerSim(MLU_model_noIn,fixed("verbalIQ"), nsim=10)
+power_verbalIQ
+
+#Adding an interaction between Visit and Diagnosis
+power_Interaction = powerSim(MLU_model,fixed("Visit:Diagnosis"),nsim=10)
+power_Interaction  
+
+```
+
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
 
 ### Exercise 2
@@ -30,6 +74,17 @@ How would you perform a more conservative power analysis?
 
 ```{r}
 
+#Identify and justify a minimum effect size for relevant effects
+summary(MLU_model)
+
+fixef(MLU_model)["Visit"] = 5
+fixef(MLU_model)["DiagnosisTD"] = 5
+fixef(MLU_model)["verbalIQ"] = 10
+fixef(MLU_model)["Vst:DgnssTD"] = 5
+
+powerCurve_visit = powerCurve(MLU_model,fixed("Visit"),along="Child.ID", nsim = 10)
+powerCurve_Diagnosis = powerCurve(MLU_model, fixed("Diagnosis"),along = "Child.ID", nsim = 10)
+powerCurve_verbalIQ = powerCurve(MLU_model, fixed("verbalIQ"),along = "Child.ID", nsim = 10)
 
 ### Riccardo's clumsy function to simulate new participants
 ### TO DO points are only notes for myself, so not part of the assignment
