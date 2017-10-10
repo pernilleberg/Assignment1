@@ -83,11 +83,11 @@ NewData=merge(demotest,LUtest)
 MergedData=merge(tokentest,NewData)
 
 #Selecting needed variables
-RealData=select(MergedData, ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  nonVerbalIQ, verbalIQ, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
+RealData=dplyr::select(MergedData, ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  nonVerbalIQ, verbalIQ, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
 
 df_temp = subset(RealData, Visit == 1) #choosing only the first visit
-df_temp = select(df_temp, ID, ADOS, nonVerbalIQ, verbalIQ) #choose the relevant info
-RealData = subset(RealData, select=-c(ADOS, nonVerbalIQ, verbalIQ))#drop the column you want to refresh
+df_temp = dplyr::select(df_temp, ID, ADOS, nonVerbalIQ, verbalIQ) #choose the relevant info
+RealData = subset(RealData, select=-c(ADOS,nonVerbalIQ, verbalIQ))#drop the column you want to refresh
 
 #Merge into the newest and coolest dataframe!
 test_data = merge(df_temp, RealData)

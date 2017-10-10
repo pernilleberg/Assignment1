@@ -161,10 +161,13 @@ How would you evaluate whether the model is a good model?
 ```{r}
 #Look at Chi-squared and R-squared 
 #Creating a NullModel with Visit as only predictor (to depict a natural development over time)
-nullModel=lmerTest::lmer(CHI_MLU~1+Visit+(1|ID),data, REML=F)
+nullModel=lmerTest::lmer(CHI_MLU~1+Visit+(1+Visit|ID),data, REML=F)
 summary(nullModel)
+r.squaredGLMM(model1)
+r.squaredGLMM(nullModel)
 #Compare model1 and nullModel using ANOVA
 anova(nullModel,model1)
+
 plot(model1)
 #Plot tells us that our model is biased --> violating lineraity --> this is where you can add a geom_smooth to a line plot --> growth-curve model --> see further down)
 ```

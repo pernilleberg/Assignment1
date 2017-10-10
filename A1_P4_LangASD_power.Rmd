@@ -24,12 +24,12 @@ setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
 
 #Loading libraries
 library(pacman)
-p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,pacman,stringr,tidyverse,plyr,caret,Metrics,groupdata2,simr)
+p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,pacman,stringr,tidyverse,plyr,caret,Metrics,groupdata2,simr,MASS)
 
 
 #Loading data
 train_data=read.csv("df_train_original.csv",sep=",")
-train_data=select(train_data,-c(X.1))
+train_data$X.1=NULL
 
 
 test_data2=read.csv("df_test_original.csv",sep=",")
@@ -42,8 +42,8 @@ train_data$Gender = mapvalues(train_data$Gender, from = c("M", "F"), to = c("F",
 MLU_df=rbind(train_data,test_data2)
 
 #Fitting our favourite model, which was still bad
-MLU_model=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
-MLU_model_noIn = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
+MLU_model=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+(1+Visit|ID),MLU_df,REML=F)
+MLU_model_noIn = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),MLU_df,REML=F)
 
 #Accessing power of MLU_model main effects
 power_visit = powerSim(MLU_model_noIn,fixed("Visit"), nsim = 10)
@@ -52,10 +52,10 @@ power_visit
 power_diagnosis = powerSim(MLU_model_noIn,fixed("Diagnosis"), nsim = 10)
 power_diagnosis
 
-power_verbalIQ = powerSim(MLU_model_noIn,fixed("verbalIQ"), nsim=10)
-power_verbalIQ
+#power_verbalIQ = powerSim(MLU_model_noIn,fixed("verbalIQ"), nsim=10)
+#power_verbalIQ
 
-#Adding an interaction between Visit and Diagnosis
+#Accessing power of interaction between Visit and Diagnosis
 power_Interaction = powerSim(MLU_model,fixed("Visit:Diagnosis"),nsim=10)
 power_Interaction  
 
@@ -75,21 +75,24 @@ How would you perform a more conservative power analysis?
 ```{r}
 
 #Identify and justify a minimum effect size for relevant effects
+#MLU_model1=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+(1+Visit|ID),MLU_df,REML=F)
 summary(MLU_model)
 
-fixef(MLU_model)["Visit"] = 5
-fixef(MLU_model)["DiagnosisTD"] = 5
-fixef(MLU_model)["verbalIQ"] = 10
-fixef(MLU_model)["Vst:DgnssTD"] = 5
+#Main effects
+fixef(MLU_model_noIn)["Visit"] = 0.1
+fixef(MLU_model_noIn)["DiagnosisTD"] = -0.4
+#fixef(MLU_model_noIn)["verbalIQ"] = 0.1
 
-powerCurve_visit = powerCurve(MLU_model,fixed("Visit"),along="Child.ID", nsim = 10)
-powerCurve_Diagnosis = powerCurve(MLU_model, fixed("Diagnosis"),along = "Child.ID", nsim = 10)
-powerCurve_verbalIQ = powerCurve(MLU_model, fixed("verbalIQ"),along = "Child.ID", nsim = 10)
+#Interaction efects
+fixef(MLU_model)["Visit:DiagnosisTD"] = 0.3
+fixef(MLU_model)["Visit"] = 0.1
+fixef(MLU_model)["DiagnosisTD"] = -0.4
+#fixef(MLU_model)["verbalIQ"] = 0.1
 
 ### Riccardo's clumsy function to simulate new participants
 ### TO DO points are only notes for myself, so not part of the assignment
 
-createNewData <- function (participants,visits,model){
+New_MLUdata <- function(participants,visits,model){
   # participants is the number of subjects
   # visits is the number of visits
   # TO DO: LOOP THROUGH ALL FE ROWS AND AUTOMATICALLY EXTRACT NAMES OF FIXED EFFECTS AND ESTIMATES
@@ -97,6 +100,7 @@ createNewData <- function (participants,visits,model){
   Intercept <- fe[1] #intercept
   bVisit <- fe[2] #visit
   bDiagnosis <- fe[3] #diagnosis
+  #bverbalIQ = fe[4]
   bVisitDiagnosis <- fe[4] #visit diagnosis interaction
   # TO DO: INTEGRATE STANDARD ERROR?
   
@@ -108,11 +112,15 @@ createNewData <- function (participants,visits,model){
   sigmaCorrelation <- as.numeric(attr(vc[[1]],"correlation")[2])
   
   # Create an empty dataframe
-  d=expand.grid(Visit=1:visits,Child.ID=1:participants)
+  d=expand.grid(Visit=1:visits,ID=1:participants)
+  #v=expand.grid(verbalIQ=1:participants)
   # Randomly sample from a binomial (to generate the diagnosis)
   condition <- sample(rep(0:1, participants/2))
-  d$Diagnosis<-condition[d$Child.ID]
+  d$Diagnosis<-condition[d$ID]
   d$Diagnosis[is.na(d$Diagnosis)]<-1
+  #v$verbalIQ=rnorm(participants,mean(MLU_df$verbalIQ),sd(MLU_df$verbalIQ))
+  #dv=merge(d,v)
+  #making a new dataset for verbalIQ for number og vist merge
   
   ## Define variance covariance matrices:
   Sigma.u<-matrix(c(sigmaSubject^2,
@@ -122,7 +130,7 @@ createNewData <- function (participants,visits,model){
   
   ## generate new fake participants (column1=RandomIntercept, column2=RandomSlope)
   u<-mvrnorm(n=participants,
-             mu=c(0,0),Sigma=cov(ranef(model)$Child.ID))
+             mu=c(0,0),Sigma=cov(ranef(model)$ID))
   
   ## now generate fake data:
   ### the outcome is extracted from a gaussian with
@@ -131,10 +139,21 @@ createNewData <- function (participants,visits,model){
   d$CHI_MLU <- rnorm(participants*visits,
                      (Intercept+u[,1]) +
                      (bVisit+u[,2])*d$Visit + 
-                     bDiagnosis*d$Diagnosis ,sigmaResiduals)  
+                     bDiagnosis*d$Diagnosis+bVisitDiagnosis*d$Visit*d$Diagnosis ,sigmaResiduals)  
   
   return(d)
 }
+
+d1 = New_MLUdata(200,6,MLU_model)
+
+powerCurve_visit = powerCurve(MLU_model,fixed("Visit"),along="ID", nsim = 10)
+plot(powerCurve_visit)
+
+powerCurve_Diagnosis = powerCurve(MLU_model, fixed("Diagnosis"),along = "ID", nsim = 10)
+plot(powerCurve_Diagnosis)
+
+#powerCurve_verbalIQ = powerCurve(MLU_model, fixed("verbalIQ"),along = "ID", nsim = 10)
+#plot(powerCurve_verbalIQ)
 ```
 
 
