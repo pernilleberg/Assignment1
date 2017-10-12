@@ -75,19 +75,34 @@ How would you perform a more conservative power analysis?
 ```{r}
 
 #Identify and justify a minimum effect size for relevant effects
-#MLU_model1=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+(1+Visit|ID),MLU_df,REML=F)
 summary(MLU_model)
+summary(MLU_model_noIn)
+
+#Identify miminum effect size --> use meta-analysis (can be used as an anchor point), pilot studies etc. Look at estimates and standard error
+
+#Does dierction of fixed effects matter? It doesn't matter (e.g. you have a minus with DiagnosisTD)
+
+#Jusitfy the minimum effect size used!
 
 #Main effects
-fixef(MLU_model_noIn)["Visit"] = 0.1
-fixef(MLU_model_noIn)["DiagnosisTD"] = -0.4
+fixef(MLU_model_noIn)["Visit"] = 0.23
+fixef(MLU_model_noIn)["DiagnosisTD"] = 0.25
 #fixef(MLU_model_noIn)["verbalIQ"] = 0.1
 
 #Interaction efects
-fixef(MLU_model)["Visit:DiagnosisTD"] = 0.3
+fixef(MLU_model)["Visit:DiagnosisTD"] = 0.24
 fixef(MLU_model)["Visit"] = 0.1
-fixef(MLU_model)["DiagnosisTD"] = -0.4
+fixef(MLU_model)["DiagnosisTD"] = -0.21
 #fixef(MLU_model)["verbalIQ"] = 0.1
+
+powerCurve_visit = powerCurve(MLU_model_noIn,fixed("Visit"),along="ID", nsim = 10)
+plot(powerCurve_visit)
+
+powerCurve_Diagnosis = powerCurve(MLU_model_noIn, fixed("DiagnosisTD"),along = "ID", nsim = 10)
+plot(powerCurve_Diagnosis)
+
+powerCurve_interaction = powerCurve(MLU_model,fixed("Visit:DiagnosisTD"),along = "ID", nsim = 10)
+plot(powerCurve_interaction)
 
 ### Riccardo's clumsy function to simulate new participants
 ### TO DO points are only notes for myself, so not part of the assignment
@@ -145,15 +160,22 @@ New_MLUdata <- function(participants,visits,model){
 }
 
 d1 = New_MLUdata(200,6,MLU_model)
+#would you have to merge d1 with MLU_data?
 
-powerCurve_visit = powerCurve(MLU_model,fixed("Visit"),along="ID", nsim = 10)
+#model with the new merged-dataset:
+NewMLU_m = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),d1,REML=F)
+
+powerCurve_visit = powerCurve(NewMLU_m,fixed("Visit"),along="ID", nsim = 10)
 plot(powerCurve_visit)
 
-powerCurve_Diagnosis = powerCurve(MLU_model, fixed("Diagnosis"),along = "ID", nsim = 10)
+powerCurve_Diagnosis = powerCurve(MLU_model, fixed("DiagnosisTD"),along = "ID", nsim = 10)
 plot(powerCurve_Diagnosis)
 
 #powerCurve_verbalIQ = powerCurve(MLU_model, fixed("verbalIQ"),along = "ID", nsim = 10)
 #plot(powerCurve_verbalIQ)
+
+#function that tells R to continue runing an analysis, even when it finds an error (it will still inform you about the error)
+
 ```
 
 
