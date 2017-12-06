@@ -30,7 +30,7 @@ How did your models from last time perform? In this exercise you have to compare
 ```{r}
 #Loading libraries
 library(pacman)
-p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,pacman,stringr,tidyverse,plyr,caret,Metrics,groupdata2)
+p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,stringr,plyr,caret,Metrics,groupdata2,pastecs,DrugClust)
 
 #setting working directory
 setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
@@ -38,7 +38,6 @@ setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
 #Loading training data
 training_data=read.csv("Assignment_1_data.csv",sep=",")
 training_data=na.omit(training_data)
-
 
 #Model from Assignment 1, part 2 - Our awesome model
 MLUmodel=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),training_data,REML=F)
@@ -52,7 +51,6 @@ MLUmodel=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),training
 #Model performance on training data
 modelr::rmse(MLUmodel,training_data)
 ```
-An alright performance (rmse = average error, 0.35 is okay)
 
 - create the test dataset (apply the code from assignment 1 part 1 to clean up the 3 test datasets)
 ```{r}
@@ -110,16 +108,11 @@ test_data$Diagnosis=plyr::revalue(test_data$Diagnosis, c("A"="ASD","B"="TD"))
 ```{r}
 #Model performance on test data - how good is our model to predict new data?
 modelr::rmse(MLUmodel,test_data)
+
 ```
-So our model was okay at explaning data, but horrible at explaning new data (average error of 0.72, when you want to diagnose something is bad)
 
 - optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
 
-```{r}
-
-```
-
-THE EXTENDED MODEL IS RELATIVELY GOOD AT EXPLANING THE ORIGINAL DATA (TRAINING_DATA) BUT FAILS AT PREDICTING/GENERALIZE TO NEW DATA (TEST_DATA)
 
 ### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
 
@@ -130,6 +123,7 @@ In this exercise you have to use cross-validation to calculate the predictive er
 - Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
 
 ```{r}
+#Creating basic model
 model1=lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),training_data,REML=F)
 ```
 - Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
@@ -138,7 +132,7 @@ model1=lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),training_data,REML=
 
 library(groupdata2)
 
-numfolds = 4
+numfolds = 5
 Original_train = training_data
 training_data = fold(training_data, numfolds ,id_col="ID", cat_col=c("Gender","Diagnosis"))
 
@@ -159,22 +153,28 @@ for (fold in seq(numfolds)){
 
 }
 
-perf_test_list
-perf_train_list
+mean(perf_test_list)
+mean(perf_train_list)
+
+std.error(perf_test_list)
+std.error(perf_train_list)
 
 test_data$ID=test_data$ID+100
 
-pred_test=predict(model1,test_data, allow.new.levels=T)
-Metrics::rmse(test_data$CHI_MLU, pred_test) 
-#Ca det samme som loopet --> betyder at vi kan få samme info fra store dataset som det lille dataset
+
+
+pred_train = predict(model1,training_data,allow.new.levels=T)
+train_rmse = Metrics::rmse(training_data$CHI_MLU,pred_train)
+
 
 ```
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
 
 ```{r}
 library(groupdata2)
+library(plotrix)
 
-numfolds = 4
+numfolds = 5
 
 perf_test_list=c()
 perf_train_list=c()
@@ -209,7 +209,7 @@ Cross_val = function(numfolds, model_string, data){
   perf_train_list
   }
   
-return(data.frame(perf_test = perf_test_list, perf_train = perf_train_list, model = model_string))
+return(data.frame(perf_test = perf_test_list, perf_train = perf_train_list, mean_perf_test = mean(perf_test_list), std.error_test = std.error(perf_test_list), mean_perf_train = mean(perf_train_list), std.error_train = std.error(perf_train_list), model = model_string))
 }
 
 for (modelString in models){ 
@@ -222,6 +222,7 @@ for (modelString in models){
   }
 }
 result_df$modelnr = sort(rep(seq(4), 4))
+
 
 test_data$ID=test_data$ID+100
 
@@ -246,9 +247,10 @@ You want to evaluate:
 
 ```{r}
 #Extracting Bernie's data
-bernie_frame=subset(test_data, ID==202)
+bernie_frame=subset(test_data, ID==302)
 summary(model1)
 
+#Constructing a dataframe with the predicted value for the avreage TD child - comparing Bernies performance to this value
 td_df=data.frame(ID=300,Visit=1:6,Diagnosis="TD")
 predict(model1,td_df, allow.new.levels=T)
 abs(predict(model1,td_df, allow.new.levels=T)-bernie_frame$CHI_MLU)
@@ -257,6 +259,7 @@ abs(predict(model1,td_df, allow.new.levels=T)-bernie_frame$CHI_MLU)
 
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 ```{r}
+predict(model1,bernie_frame,allow.new.levels=T)
 bernie_frame$CHI_MLU-predict(model1,bernie_frame,allow.new.levels=T)
 ```
 

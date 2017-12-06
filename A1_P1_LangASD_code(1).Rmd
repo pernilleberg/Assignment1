@@ -80,8 +80,7 @@ Tip: There is a package called stringr, which will be very handy for you also in
 
 ```{r}
 library(stringr)
-
-#Extracting phrases in Visit - leaving only digits
+#Extracting strings from Visit column - using regular expressions, leaving only digits in reported values
 LU_train$Visit=str_extract(LU_train$Visit,"\\d")
 token_train$Visit=str_extract(token_train$Visit, "\\d")
 ```
@@ -120,13 +119,14 @@ It would be smart to rename the MullenRaw and ExpressiveLangRaw into something y
 
 ```{r}
 library(tidyverse)
-#Renaming variables
+#Renaming variables (IQ demographics)
 demo_train=plyr::rename(demo_train,c("MullenRaw"="nonVerbalIQ", "ExpressiveLangRaw"="verbalIQ"))
 
 #Merging data
 newData1=merge(demo_train,LU_train,all=T)
 MergedData=merge(token_train,newData1,all=T)
 
+#Selecting the necessary/interesting variables
 RealData=select(MergedData, ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  nonVerbalIQ, verbalIQ, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
 ```
 
@@ -137,7 +137,7 @@ Tip: Merge only works for two data frames at the time.
 Tip: Check the number of observations in the datasets before and after merging. What is going on?
 
 ```{r}
-#Already Done
+#Already done
 ```
 
 Are we done yet?
@@ -151,10 +151,16 @@ Tip: the final dataset should have as many rows as the the old one.
 
 
 ```{r}
-df_temp = subset(RealData, Visit == 1) #choosing only the first visit
-df_temp = select(df_temp, ID, ADOS, nonVerbalIQ, verbalIQ) #choose the relevant info
-RealData = subset(RealData, select=-c(ADOS, nonVerbalIQ, verbalIQ))#drop the column you want to refresh
-#Merge into the newest and coolest dataframe!
+#Saving a subset with only data from the first visit
+df_temp = subset(RealData, Visit == 1) 
+
+#Selecting the relevant info from the subset
+df_temp = select(df_temp, ID, ADOS, nonVerbalIQ, verbalIQ) 
+
+#Dropping the columns from the large dataframe, which we want to refresh with subset data
+RealData = subset(RealData, select=-c(ADOS, nonVerbalIQ, verbalIQ))
+
+#Merging subset and large df into newest and coolest dataframe!
 df = merge(df_temp, RealData, ALL=T)
 ```
 
@@ -169,13 +175,14 @@ Tip: as.numeric() might be a useful function, but not alone.
 Tip: Google "how to rename levels in R".
 
 ```{r}
-#turning ID into numbers:
+
+#Turning ID variable numeric:
 df$ID=as.numeric(as.factor(df$ID))
 
-#turning Visit into numeric:
+#Turning Visit variable numeric:
 df$Visit=as.numeric(as.factor(df$Visit))
 
-#renaming values in Gender and Diagnosis
+#Renaming values in Gender and Diagnosis
 df$Gender=as.factor(df$Gender)
 df$Gender=plyr::revalue(df$Gender,c("1"="F","2"="M"))
 df$Diagnosis=plyr::revalue(df$Diagnosis, c("A"="ASD","B"="TD"))
@@ -185,6 +192,7 @@ df$Diagnosis=plyr::revalue(df$Diagnosis, c("A"="ASD","B"="TD"))
 Save the data set using into a csv file. Hint: look into write.csv()
 
 ```{r}
+#Saving data to .csv file
 write.csv(df,file="Assignment_1_data.csv")
 ```
 
@@ -201,6 +209,36 @@ List all kids who:
 3. have not completed all trials. Tip: Use pipes to solve this
 
 ```{r}
+#Loading libraries
+library(dplyr)
+library(reshape)
+library(data.table)
+
+df = read.csv("Assignment_1_data.csv")
+
+#1
+#Grouping data by ID and summarise each CHI_MLU value using mean. Afterwards, using filter to find ID's where mean(CHI_MLU) is > 2.7 morphemes
+morph1=group_by(df, ID) %>%
+  summarise_each(funs(mean(., na.rm = TRUE)), CHI_MLU)
+morph2=filter(morph1, CHI_MLU > 2.7)
+
+#2
+#Grouping data by ID and Visit, and summarise each CHI_MLU value using mean. Afterwards, using filter to find ID's, where CHI_MLU < 1.5 and Visit is 1.
+morph3=group_by(df, ID, Visit) %>%
+  summarise_each(funs(mean(., na.rm = TRUE)), CHI_MLU)
+morph4=filter(morph3, CHI_MLU < 1.5, Visit == 1)
+
+
+#3)
+#Using filter to find rows with NA. Printing ID's with NA rows. 
+morph5 = filter(df, df$CHI_MLU%>%is.na)
+morph5$ID
+
+#Grouping data by ID, and summarise mean number of visits. 
+morph6=group_by(df,ID) %>%
+  summarise_each(funs(sum(., na.rm = TRUE)), Visit)
+
+morph5=filter(morph6,Visit < 21)
 
 
 ```
@@ -212,8 +250,9 @@ USING ARRANGE
 2. Sort kids to find the kid who produced the least amount of words on the 1st visit.
 
 ```{r}
-
-
+#desc() --> sorts variable in descending order.
+arr1=arrange(df, desc(Visit), desc(tokens_CHI))
+arr2=arrange(df, Visit, tokens_CHI)
 ```
 
 USING SELECT
@@ -222,7 +261,8 @@ USING SELECT
 2. What happens if you include the name of a variable multiple times in a select() call?
 
 ```{r}
-
+sub1 = select(df, Diagnosis, CHI_MLU, tokens_CHI)
+sub1 = filter(sub1, df$Diagnosis=='ASD')
 ```
 
 
@@ -232,6 +272,18 @@ USING MUTATE, SUMMARISE and PIPES
 3. The solution to task above enables us to assess the average amount of words produced by each child. Why don't we just use these average values to describe the language production of the children? What is the advantage of keeping all the data?
 
 ```{r}
+#1)
+mean_visits = group_by(df, Visit) %>%
+  summarise_each(funs(mean(. , na.rm= T)), tokens_CHI)
+setnames(mean_visits, "tokens_CHI","mean_per_visit" )
+newdf=merge(df,mean_visits, all = T)
 
+#2)
+mean = group_by(df, ID) %>%
+  summarise_each(funs(mean(., na.rm=T)), tokens_CHI)
+
+mean$meanWords = mean$tokens_CHI
+mean$tokens_CHI=NULL
+newdf=merge(df, mean, all=T)
 
 ```
