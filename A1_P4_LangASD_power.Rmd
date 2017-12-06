@@ -24,7 +24,7 @@ setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
 
 #Loading libraries
 library(pacman)
-p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,pacman,stringr,tidyverse,plyr,caret,Metrics,groupdata2,simr,MASS)
+p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,stringr,plyr,caret,Metrics,groupdata2,simr,MASS)
 
 
 #Loading data
@@ -41,24 +41,27 @@ train_data$Gender = mapvalues(train_data$Gender, from = c("M", "F"), to = c("F",
 
 MLU_df=rbind(train_data,test_data2)
 
-#Fitting our favourite model, which was still bad
-MLU_model=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+(1+Visit|ID),MLU_df,REML=F)
-MLU_model_noIn = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),MLU_df,REML=F)
+#Fitting our favourite model (CHild Mlu predcited by verbalIQ and an interaction between diagnosis and visit)
+MLU_model=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
+#Making a model without interaction to access the power of individual main effects
+MLU_model_noIn = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
+summary(MLU_model) #To get beta-estimates
+summary(MLU_model_noIn) #To get beta-estimates
 
-#Accessing power of MLU_model main effects
-power_visit = powerSim(MLU_model_noIn,fixed("Visit"), nsim = 10)
-power_visit
+#Accessing power of MLU_model main effects usin 100 simulations
+power_visit = powerSim(MLU_model_noIn,fixed("Visit"), nsim = 100)
+power_visit #Overpowered - we could get away with less participants
 
-power_diagnosis = powerSim(MLU_model_noIn,fixed("Diagnosis"), nsim = 10)
-power_diagnosis
+power_diagnosis = powerSim(MLU_model_noIn,fixed("Diagnosis"), nsim = 100)
+power_diagnosis #Underpowered - we need more particpants
 
-#power_verbalIQ = powerSim(MLU_model_noIn,fixed("verbalIQ"), nsim=10)
-#power_verbalIQ
+power_verbalIQ = powerSim(MLU_model_noIn,fixed("verbalIQ"), nsim = 100) 
+power_verbalIQ
 
 #Accessing power of interaction between Visit and Diagnosis
-power_Interaction = powerSim(MLU_model,fixed("Visit:Diagnosis"),nsim=10)
+power_Interaction = powerSim(MLU_model,fixed("Visit:Diagnosis"),nsim=100)
 power_Interaction  
-
+ 
 ```
 
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
@@ -78,103 +81,41 @@ How would you perform a more conservative power analysis?
 summary(MLU_model)
 summary(MLU_model_noIn)
 
-#Identify miminum effect size --> use meta-analysis (can be used as an anchor point), pilot studies etc. Look at estimates and standard error
+#Identify miminum effect size --> use meta-analysis (can be used as an anchor point), pilot studies etc. Look at estimates and standard error. Look at estimate.
 
 #Does dierction of fixed effects matter? It doesn't matter (e.g. you have a minus with DiagnosisTD)
 
-#Jusitfy the minimum effect size used!
+#Identifying and Jusitfying the minimum effect size used! Adding (less conservative) or substracting (more conservative) the SD - to detect a smaller effect size takes more power
 
 #Main effects
-fixef(MLU_model_noIn)["Visit"] = 0.23
-fixef(MLU_model_noIn)["DiagnosisTD"] = 0.25
-#fixef(MLU_model_noIn)["verbalIQ"] = 0.1
+fixef(MLU_model_noIn)["Visit"] = 0.234847-0.023241
 
-#Interaction efects
-fixef(MLU_model)["Visit:DiagnosisTD"] = 0.24
-fixef(MLU_model)["Visit"] = 0.1
-fixef(MLU_model)["DiagnosisTD"] = -0.21
-#fixef(MLU_model)["verbalIQ"] = 0.1
-
-powerCurve_visit = powerCurve(MLU_model_noIn,fixed("Visit"),along="ID", nsim = 10)
+#Plotting the power for Visit when fixed effect is changed
+powerCurve_visit = powerCurve(MLU_model_noIn,fixed("Visit"),along="ID", nsim = 100)
 plot(powerCurve_visit)
 
-powerCurve_Diagnosis = powerCurve(MLU_model_noIn, fixed("DiagnosisTD"),along = "ID", nsim = 10)
+fixef(MLU_model_noIn)["verbalIQ"] = 0.07541-0.007148
+powerCurve_verbalIQ = powerCurve(MLU_model_noIn, fixed("verbalIQ"), along = "ID", nsim = 100)
+plot(powerCurve_verbalIQ)
+
+fixef(MLU_model_noIn)["DiagnosisTD"] = 0.170496-0.089315 #Adding the standard error to be less conservative - diagnosis were underpowered; makes no sense to be more conservative
+summary(MLU_model_noIn)
+
+#Plotting the power for Diagnosis when fixed effect is changed
+powerCurve_Diagnosis = powerCurve(MLU_model_noIn, fixed("Diagnosis"),along = "ID", nsim = 100)
 plot(powerCurve_Diagnosis)
 
-powerCurve_interaction = powerCurve(MLU_model,fixed("Visit:DiagnosisTD"),along = "ID", nsim = 10)
+summary(MLU_model)
+
+#Interaction efects --> adding and substracting sd
+fixef(MLU_model)["Visit:DiagnosisTD"] = 0.248988-0.035399
+fixef(MLU_model)["Visit"] = 0.102829-0.025677
+fixef(MLU_model)["DiagnosisTD"] = -0.389235+0.120834
+fixef(MLU_model)["verbalIQ"] = 0.075723-0.007136
+
+
+powerCurve_interaction = powerCurve(MLU_model,fixed("Visit:Diagnosis"),along = "ID", nsim = 100)
 plot(powerCurve_interaction)
-
-### Riccardo's clumsy function to simulate new participants
-### TO DO points are only notes for myself, so not part of the assignment
-
-New_MLUdata <- function(participants,visits,model){
-  # participants is the number of subjects
-  # visits is the number of visits
-  # TO DO: LOOP THROUGH ALL FE ROWS AND AUTOMATICALLY EXTRACT NAMES OF FIXED EFFECTS AND ESTIMATES
-  fe <- fixef(model)
-  Intercept <- fe[1] #intercept
-  bVisit <- fe[2] #visit
-  bDiagnosis <- fe[3] #diagnosis
-  #bverbalIQ = fe[4]
-  bVisitDiagnosis <- fe[4] #visit diagnosis interaction
-  # TO DO: INTEGRATE STANDARD ERROR?
-  
-  # TO DO: LOOP THROUGH ALL VC COMPONENTS AND AUTOMATICALLY EXTRACT NAMES OF EFFECTS AND ESTIMATES
-  vc<-VarCorr(model) # variance component
-  sigmaSubject <- as.numeric(attr(vc[[1]],"stddev")[1]) # random intercept by subject
-  sigmaVisit <- as.numeric(attr(vc[[1]],"stddev")[2]) # random slope of visit over subject
-  sigmaResiduals <- as.numeric(attr(vc,"sc"))
-  sigmaCorrelation <- as.numeric(attr(vc[[1]],"correlation")[2])
-  
-  # Create an empty dataframe
-  d=expand.grid(Visit=1:visits,ID=1:participants)
-  #v=expand.grid(verbalIQ=1:participants)
-  # Randomly sample from a binomial (to generate the diagnosis)
-  condition <- sample(rep(0:1, participants/2))
-  d$Diagnosis<-condition[d$ID]
-  d$Diagnosis[is.na(d$Diagnosis)]<-1
-  #v$verbalIQ=rnorm(participants,mean(MLU_df$verbalIQ),sd(MLU_df$verbalIQ))
-  #dv=merge(d,v)
-  #making a new dataset for verbalIQ for number og vist merge
-  
-  ## Define variance covariance matrices:
-  Sigma.u<-matrix(c(sigmaSubject^2,
-                    sigmaCorrelation*sigmaSubject*sigmaVisit,
-                    sigmaCorrelation*sigmaSubject*sigmaVisit,
-                    sigmaVisit^2),nrow=2)
-  
-  ## generate new fake participants (column1=RandomIntercept, column2=RandomSlope)
-  u<-mvrnorm(n=participants,
-             mu=c(0,0),Sigma=cov(ranef(model)$ID))
-  
-  ## now generate fake data:
-  ### the outcome is extracted from a gaussian with
-  ### the solution to the model's equation as mean and
-  ### the residual standard deviation as standard deviation 
-  d$CHI_MLU <- rnorm(participants*visits,
-                     (Intercept+u[,1]) +
-                     (bVisit+u[,2])*d$Visit + 
-                     bDiagnosis*d$Diagnosis+bVisitDiagnosis*d$Visit*d$Diagnosis ,sigmaResiduals)  
-  
-  return(d)
-}
-
-d1 = New_MLUdata(200,6,MLU_model)
-#would you have to merge d1 with MLU_data?
-
-#model with the new merged-dataset:
-NewMLU_m = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),d1,REML=F)
-
-powerCurve_visit = powerCurve(NewMLU_m,fixed("Visit"),along="ID", nsim = 10)
-plot(powerCurve_visit)
-
-powerCurve_Diagnosis = powerCurve(MLU_model, fixed("DiagnosisTD"),along = "ID", nsim = 10)
-plot(powerCurve_Diagnosis)
-
-#powerCurve_verbalIQ = powerCurve(MLU_model, fixed("verbalIQ"),along = "ID", nsim = 10)
-#plot(powerCurve_verbalIQ)
-
-#function that tells R to continue runing an analysis, even when it finds an error (it will still inform you about the error)
 
 ```
 
@@ -183,7 +124,46 @@ plot(powerCurve_Diagnosis)
 
 Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why.
 
+```{r}
+#Creating a small dataframe with 15 TD children and 15 ASD children
+TD_kids = unique(MLU_df$ID[MLU_df$Diagnosis == "TD"])[1:15]
+ASD_kids = unique(MLU_df$ID[MLU_df$Diagnosis == "ASD"])[1:15]
+Allthemkids = c(TD_kids,ASD_kids)
 
+small_df = MLU_df[MLU_df$ID %in% Allthemkids,]
+
+#Fitting the our model with the small dataframme
+Small_model_noIN = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+verbalIQ+(1+Visit|ID),small_df,REML=F)
+Small_model = lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),small_df,REML = F)
+summary(Small_model_noIN)
+summary(Small_model)
+
+#Assessing power for predictors (might not be necessary):
+power_visit2 = powerSim(Small_model_noIN,fixed("Visit"), nsim = 100)
+power_visit2
+
+power_verbalIQ2 = powerSim(Small_model_noIN,fixed("verbalIQ"), nsim = 100)
+power_verbalIQ2
+
+power_diagnosis2 = powerSim(Small_model_noIN,fixed("Diagnosis"), nsim = 100)
+power_diagnosis2
+
+power_Inter2 = powerSim(Small_model,fixed("Visit:Diagnosis"), nsim = 100)
+power_Inter2
+
+#Producing a powerCurve for each variable to see whether it's worth running the study
+powerCurve_visit = powerCurve(Small_model_noIN,fixed("Visit"),along="ID", nsim = 100)
+plot(powerCurve_visit)
+
+powerCurve_Diagnosis = powerCurve(Small_model_noIN, fixed("Diagnosis"),along = "ID", nsim = 100)
+plot(powerCurve_Diagnosis)
+
+powerCurve_verbalIQ = powerCurve(Small_model_noIN,fixed("verbalIQ"), along ="ID",nsim = 100)
+plot(powerCurve_verbalIQ)
+
+powerCurve_interaction = powerCurve(Small_model, fixed("Visit:Diagnosis"),along = "ID", nsim = 100)
+plot(powerCurve_interaction)
+```
 
 
 
