@@ -41,8 +41,9 @@ train_data$Gender = mapvalues(train_data$Gender, from = c("M", "F"), to = c("F",
 
 MLU_df=rbind(train_data,test_data2)
 
-#Fitting our favourite model (CHild Mlu predcited by verbalIQ and an interaction between diagnosis and visit)
+#Fitting our favourite model (CHild Mlu predicted by verbalIQ and an interaction between diagnosis and visit)
 MLU_model=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
+
 #Making a model without interaction to access the power of individual main effects
 MLU_model_noIn = lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+verbalIQ+(1+Visit|ID),MLU_df,REML=F)
 summary(MLU_model) #To get beta-estimates

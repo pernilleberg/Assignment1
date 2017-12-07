@@ -30,14 +30,14 @@ How did your models from last time perform? In this exercise you have to compare
 ```{r}
 #Loading libraries
 library(pacman)
-p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,stringr,plyr,caret,Metrics,groupdata2,pastecs,DrugClust)
+p_load(modelr,lmerTest,ggplot2,dplyr,tidyverse,MuMIn,stringr,plyr,caret,Metrics,groupdata2,pastecs,DrugClust) #Lots of packages - be careful with that
 
 #setting working directory
-setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
+setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1") #Again, not actually necessary, when working in right project
 
 #Loading training data
 training_data=read.csv("Assignment_1_data.csv",sep=",")
-training_data=na.omit(training_data)
+training_data=na.omit(training_data) 
 
 #Model from Assignment 1, part 2 - Our awesome model
 MLUmodel=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),training_data,REML=F)
@@ -73,7 +73,7 @@ LUtest$ID=gsub("\\.","",LUtest$ID)
 tokentest$ID=gsub("\\.","",tokentest$ID)
 demotest$ID=gsub("\\.","",demotest$ID)
 
-#renaming variables name in demotest set
+#renaming IQ demographics in demotest set
 demotest=plyr::rename(demotest,c("MullenRaw"="nonVerbalIQ", "ExpressiveLangRaw"="verbalIQ"))
 
 #Merging data
@@ -106,7 +106,7 @@ test_data$Diagnosis=plyr::revalue(test_data$Diagnosis, c("A"="ASD","B"="TD"))
 - test the performance of the models on the test data (Tips: time to reuse "predict()")
 
 ```{r}
-#Model performance on test data - how good is our model to predict new data?
+#Model performance on test data - how good is our model at predicting new data? (Spoiler alert: not very good)
 modelr::rmse(MLUmodel,test_data)
 
 ```
@@ -134,19 +134,19 @@ library(groupdata2)
 
 numfolds = 5
 Original_train = training_data
-training_data = fold(training_data, numfolds ,id_col="ID", cat_col=c("Gender","Diagnosis"))
+training_data = fold(training_data, numfolds ,id_col="ID", cat_col=c("Gender","Diagnosis")) #creating folds to use in cross-validation
 
-perf_test_list=c()
+perf_test_list=c() #making empty list for performance measures
 perf_train_list=c()
 
-for (fold in seq(numfolds)){
+for (fold in seq(numfolds)){ 
   temp_train = subset(training_data, .folds !=fold)
   temp_test = subset(training_data, .folds == fold)
-  temp_model=lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),temp_train,REML=F) #training the simple model 
+  temp_model=lmerTest::lmer(CHI_MLU~1+Visit+Diagnosis+(1+Visit|ID),temp_train,REML=F) #training the simple model on the training data
   
-  pred_test=predict(temp_model,temp_test, allow.new.levels=T) #getting performance for test data
+  pred_test=predict(temp_model,temp_test, allow.new.levels=T) #getting performance for test data (how well does the model predict new data, when it has been trained on the training data)
   perf_test=Metrics::rmse(temp_test$CHI_MLU, pred_test) 
-  perf_test_list=c(perf_test_list,perf_test)
+  perf_test_list=c(perf_test_list,perf_test) #fill into the empty list
   pred_train=predict(temp_model,temp_train)#get performance for training data
   perf_train=Metrics::rmse(temp_train$CHI_MLU,pred_train)
   perf_train_list=c(perf_train_list,perf_train)
@@ -161,11 +161,8 @@ std.error(perf_train_list)
 
 test_data$ID=test_data$ID+100
 
-
-
 pred_train = predict(model1,training_data,allow.new.levels=T)
 train_rmse = Metrics::rmse(training_data$CHI_MLU,pred_train)
-
 
 ```
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
@@ -179,7 +176,7 @@ numfolds = 5
 perf_test_list=c()
 perf_train_list=c()
 
-#Making some random modelsstrings, which we can test against our cool model from Part 2 (model2) - we want to find the best" predivtive model of ChildMLU 
+#Making some random modelsstrings, which we can test against our cool model from Part 2 (model2) - we want to find the best predictive model of ChildMLU 
 model2="CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID)"
 model3="CHI_MLU~1+Visit+Diagnosis+MOT_MLU+tokens_MOT+types_MOT+(1+Visit|ID)"
 model4="CHI_MLU~1+Visit+Diagnosis+tokens_CHI*types_CHI+(1+Visit|ID)"
@@ -187,13 +184,13 @@ model5="CHI_MLU~1+Visit+Diagnosis+nonVerbalIQ+(1+Visit|ID)"
 models=c(model2,model3,model4,model5)
 
 
-Cross_val = function(numfolds, model_string, data){
-  training_data = fold(data, numfolds ,id_col="ID", cat_col=c("Gender","Diagnosis"))
+Cross_val = function(numfolds, model_string, data){ #making a cross-validation function - so cool
+  training_data = fold(data, numfolds ,id_col="ID", cat_col=c("Gender","Diagnosis")) #creating folds
   
-  perf_test_list=c()
+  perf_test_list=c() #make the empty performance lists
   perf_train_list=c()
   
-  for (fold in seq(numfolds)){
+  for (fold in seq(numfolds)){ #the cross-val loop from above
     temp_train = subset(training_data, .folds !=fold)
     temp_test = subset(training_data, .folds == fold)
     temp_model=lmerTest::lmer(model_string,temp_train,REML=F) #training the simple model 
@@ -201,7 +198,7 @@ Cross_val = function(numfolds, model_string, data){
     pred_test=predict(temp_model,temp_test, allow.new.levels=T) #getting performance for test data
     perf_test=Metrics::rmse(temp_test$CHI_MLU, pred_test) 
     perf_test_list=c(perf_test_list,perf_test)
-    pred_train=predict(temp_model,temp_train)#get performance for training data
+    pred_train=predict(temp_model,temp_train) #get performance for training data
     perf_train=Metrics::rmse(temp_train$CHI_MLU,pred_train)
     perf_train_list=c(perf_train_list,perf_train)
   
@@ -212,7 +209,7 @@ Cross_val = function(numfolds, model_string, data){
 return(data.frame(perf_test = perf_test_list, perf_train = perf_train_list, mean_perf_test = mean(perf_test_list), std.error_test = std.error(perf_test_list), mean_perf_train = mean(perf_train_list), std.error_train = std.error(perf_train_list), model = model_string))
 }
 
-for (modelString in models){ 
+for (modelString in models){ #Using our Cross_Val function on all models in list of modelString
   if (modelString == models[1]){
   result_df = Cross_val(4, modelString, Original_train)
   result_df
@@ -266,8 +263,8 @@ bernie_frame$CHI_MLU-predict(model1,bernie_frame,allow.new.levels=T)
 [HERE GOES YOUR ANSWER]
 
 ```{r}
-write.csv(Original_train,"df_train_original.csv")
-write.csv(test_data,"df_test_original.csv")
+#write.csv(Original_train,"df_train_original.csv")
+#write.csv(test_data,"df_test_original.csv")
 ```
 
 ### OPTIONAL: Exercise 4) Model Selection via Information Criteria

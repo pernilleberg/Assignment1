@@ -110,28 +110,29 @@ Make sure the variables are in the right format.
 Describe the characteristics of the two groups of participants and whether the two groups are well matched.
 
 ```{r}
-#Assessing IQ variables:
+#Assessing IQ variables (only visual assessment):
 ggplot(data, aes(x=Diagnosis, y=verbalIQ))+
   geom_boxplot()
 ggplot(data,aes(x=Diagnosis,y=nonVerbalIQ))+
   geom_boxplot()
 
-#Assesing change in CHI_MLU across Visits (i.e. over time) grouped by Diagnosis
+
+#Assesing change in CHI_MLU across Visits (i.e. over time) grouped by Diagnosis (again, only visual assessment)
 data$Visit=as.factor(data$Visit)
 ggplot(data,aes(x=Visit,y=CHI_MLU,color=Diagnosis))+
   geom_boxplot()
 data$Visit=as.integer(data$Visit)
 
-#Assesing correlation between CHI_MLU and MOT_MLU, grouped by diagnosis
+#Assesing correlation between CHI_MLU and MOT_MLU, grouped by diagnosis (also just visual assessment)
 ggplot(data,aes(x=CHI_MLU,y=MOT_MLU))+geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~Diagnosis)
 
-#Accessing Ethnicity - might just remove this
+#Accessing Ethnicity - not included in written answers
 summary(data$Ethnicity)
 
 #Assesing gender differences:
-summary(data$Gender) #Lots ofr females comapred to males
+summary(data$Gender) #Lots of females compared to males
 summary(data$Gender[data$Diagnosis == "ASD"]) 
 summary(data$Gender[data$Diagnosis == "TD"])
 gendermodel = glm(Gender~Diagnosis, family = binomial, data)
@@ -168,15 +169,16 @@ summary(model1)
 How would you evaluate whether the model is a good model?
 
 ```{r}
-#Look at Chi-squared and R-squared (Variance explained by predictors)
+#Look at Chi-squared and R-squared (How much variance explained by predictors?)
 #Creating a NullModel with Visit as only predictor (to depict a natural development over time)
 nullModel=lmerTest::lmer(CHI_MLU~1+Visit+(1+Visit|ID),data)
 summary(nullModel)
 
-#Assessing R-squared
+#Assessing R-squared (variance explained by effects (marginal = fixed, conditional = fixed and random))
 r.squaredGLMM(model1)
 r.squaredGLMM(nullModel)
-#Compare model1 and nullModel using ANOVA
+
+#Compare model1 and nullModel using ANOVA (testing whether diagnosis improves model)
 anova(nullModel,model1)
 ```
 
@@ -217,7 +219,7 @@ Your task now is to figure out how to best describe the children linguistic traj
 
 ```{r}
 #What makes a good model for training/explaning --> many predictors with a conceptual link to what you're trying to measure
-#We expect there to be an interaction between Visit and Diagnosis (as the MLU for the children over time should be effected by whether they are typically developing or diagnosied with autism. Additionally, we add verbalIQ to the model, as we expect it to be a predictor of MLU. We tested whether there would be an interaction between Visit and verbalIQ, but it was not the case)
+#We expect there to be an interaction between Visit and Diagnosis (as the MLU for the children over time should be effected by whether they are typically developing or diagnosied with autism. Additionally, we add verbalIQ to the model, as we expect it to be a predictor of MLU (linguistic in nature). We tested whether there would be an interaction between Visit and verbalIQ, but it was not the case)
 model3=lmerTest::lmer(CHI_MLU~1+Visit*Diagnosis+verbalIQ+(1+Visit|ID),data,REML=F)
 summary(model3)
 r.squaredGLMM(model3)

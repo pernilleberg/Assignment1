@@ -39,7 +39,7 @@ Set the working directory (the directory with your data and code for these assig
 
 ```{r}
 #Setting the working directory
-setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1")
+setwd("C:/Users/Ejer/Desktop/3. semester/Experimental Methods 3/Assignment1") #Not actually necessary when working in the right project
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
@@ -69,7 +69,7 @@ Tip: Look into the package data.table, or google "how to rename variables in R"
 
 ```{r}
 library(plyr)
-#Renaming the variables Child.ID and Visit
+#Renaming the variables SUBJ/Child.ID and VISIT
 demo_train=plyr::rename(demo_train, c("Child.ID"="ID"))
 LU_train=plyr::rename(LU_train,c("SUBJ"="ID","VISIT"="Visit"))
 token_train=plyr::rename(token_train,c("SUBJ"="ID","VISIT"="Visit"))
